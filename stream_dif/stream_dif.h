@@ -11,6 +11,8 @@
 #include <iomanip>
 #include <windows.h>
 #include <sstream>
+#include <fstream>
+#include <filesystem>
 
 namespace color
 {
@@ -162,9 +164,31 @@ namespace dif
 
 		void show(MethodDestination destination, bool dif = false);
 
-		void loadBin(MethodDestination destination, const std::string& fileName);
+		void loadBin(MethodDestination destination, const std::string& fileName) 
+		{
+			if (!std::filesystem::exists(fileName))
+			{
+				std::cout << "data file is not exists!" << std::endl;
+				return;
+			}
+			if (!std::filesystem::exists(fileName))
+			{
+				std::cout << "color file is not exists!" << std::endl;
+				return;
+			}
+			auto& [dataVector, colorVector] = getDestinationVector(destination);
+			loadToVector(fileName, dataVector);
+			loadToVector(fileName + ".color", colorVector);
+		}
 
-		void saveBin(MethodDestination destination, const std::string& fileName);
+		void saveBin(MethodDestination destination, const std::string& fileName)
+		{
+			auto& [dataVector, colorVector] = getDestinationVector(destination);
+			std::ofstream dataFile(fileName, std::ios::out | std::ios::binary);
+			dataFile.write((const char*)dataVector.data(), dataVector.size()*sizeof(ElementType));
+			std::ofstream colorFile(fileName + ".color", std::ios::out | std::ios::binary);
+			colorFile.write((const char*)colorVector.data(), colorVector.size() * sizeof(ElementType));
+		}
 
 	private:
 		using DestinationVectors = std::pair<std::vector<ElementType>, std::vector<color::Color>>;
@@ -198,7 +222,7 @@ namespace dif
 							std::cout << byte.str();
 						}
 						color::SetColor(adressForegroundColor, adressBackgroudColor);
-						std::cout << "  ";
+						std::cout << " ";
 					}
 					else
 						break;
@@ -233,6 +257,25 @@ namespace dif
 			throw std::invalid_argument("invalid destination");
 		}
 
+		template <typename T>
+		void loadToVector(const std::string &fileName, std::vector<T> &dataVector)
+		{
+			std::ifstream dataFile(fileName, std::ios_base::binary);
+			if (!dataFile.eof() && !dataFile.fail())
+			{
+				dataFile.seekg(0, std::ios_base::end);
+				std::streampos fileSize = dataFile.tellg();
+				dataVector.resize(fileSize);
+
+				dataFile.seekg(0, std::ios_base::beg);
+				dataFile.read((char*)&dataVector[0], fileSize * sizeof(T));
+				int d = 0;
+			}
+			else
+			{
+				std::cout << "cannot open " << fileName << std::endl;
+			}
+		}
 		color::Color defaultColor = color::dark_blue;
 		DestinationVectors dataReference;
 		DestinationVectors dataToDebug;

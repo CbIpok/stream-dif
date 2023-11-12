@@ -16,6 +16,12 @@ int main()
 	differ.changeMemoryColor(dif::StreamDif::MethodDestination::REFENENCE, 6, 1, color::Color::dark_magenta);
 	differ.changeMemoryColor(dif::StreamDif::MethodDestination::DEBUG, 12, 2, color::Color::dark_red);
 	differ.changeMemoryColor(dif::StreamDif::MethodDestination::REFENENCE, 12, 1, color::Color::dark_red);
-	differ.showDif(8);
+	differ.showDif(16);
+	std::cout << "file test" << std::endl;
+	differ.saveBin(dif::StreamDif::MethodDestination::REFENENCE, "binRef");
+	differ.saveBin(dif::StreamDif::MethodDestination::DEBUG, "binDeb");
+	differ.loadBin(dif::StreamDif::MethodDestination::REFENENCE, "binRef");
+	differ.loadBin(dif::StreamDif::MethodDestination::DEBUG, "binDeb");
+	differ.showDif(16);
 	return 0;
 }
