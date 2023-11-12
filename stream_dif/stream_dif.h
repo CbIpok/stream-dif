@@ -13,6 +13,7 @@
 #include <sstream>
 #include <fstream>
 #include <filesystem>
+#include <set>
 
 namespace color
 {
@@ -78,7 +79,7 @@ namespace conf
 			Data = color::Color::dark_green,
 			Error = color::Color::dark_red;
 	}
-	
+
 }
 
 namespace dif
@@ -132,39 +133,43 @@ namespace dif
 			return pos;
 		}
 
-		void showDif(size_t lineWidht)
+		void changePositionsColor(MethodDestination destination, const std::vector<size_t>& positions, color::Color elementsColor)
 		{
-			DataDiplay refDisplay(dataReference);
-			DataDiplay debugDisplay(dataToDebug);
-			size_t pos = 0;
-			
-			auto& [referenceData, referenceColors] = dataReference;
-			auto& [toDebugData, toDebugColors] = dataToDebug;
-			size_t difLenght = (std::min)(referenceData.size(), toDebugData.size());
-			for (size_t pos = 0; pos < difLenght;)
+			auto& [destinationVector, destinationVectorColor] = getDestinationVector(destination);
+			for (auto& i : positions)
 			{
-				size_t curLineWidht = (std::min)(lineWidht, difLenght - pos);
-				std::vector<color::Color> difResult(curLineWidht, color::Color::black);
-				for (size_t localLinePos = 0; localLinePos < curLineWidht; localLinePos++)
-				{
-					size_t curPos = pos + localLinePos;
-					if (referenceData.at(curPos) != toDebugData.at(curPos) ||
-						referenceColors.at(curPos) != toDebugColors.at(curPos))
-						difResult.at(localLinePos) = color::Color::white;
-				}
-				refDisplay.showLine(difResult);
-				std::cout << "\t";
-				debugDisplay.showLine(difResult);
-				std::cout << std::endl;
-				pos += curLineWidht;
+				if (i < destinationVectorColor.size())
+					destinationVectorColor.at(i) = elementsColor;
 			}
-			
+		}
 
+		void showDif(size_t lenWidht)
+		{
+			int pos = getDifPos(0);
+			std::cout << std::endl << pos << std::endl;
+			if (pos == -1)
+			{
+				std::cout << " no dif" << std::endl;
+				return;
+			}
+			int upPos = (pos < posUpDif)  ? pos : posUpDif;
+			for (size_t difIndex = 0; difIndex < DifCoutToShow; difIndex++)
+			{
+				pos = showDifFromPos(lenWidht, pos - upPos);
+				std::cout << "...." << std::endl;
+				pos = getDifPos(pos);
+				std::cout << std::endl << pos << std::endl;
+				if (pos == -1)
+				{
+					std::cout << " no dif more" << std::endl;
+					return;
+				}
+			}
 		}
 
 		void show(MethodDestination destination, bool dif = false);
 
-		void loadBin(MethodDestination destination, const std::string& fileName) 
+		void loadBin(MethodDestination destination, const std::string& fileName)
 		{
 			if (!std::filesystem::exists(fileName))
 			{
@@ -185,7 +190,7 @@ namespace dif
 		{
 			auto& [dataVector, colorVector] = getDestinationVector(destination);
 			std::ofstream dataFile(fileName, std::ios::out | std::ios::binary);
-			dataFile.write((const char*)dataVector.data(), dataVector.size()*sizeof(ElementType));
+			dataFile.write((const char*)dataVector.data(), dataVector.size() * sizeof(ElementType));
 			std::ofstream colorFile(fileName + ".color", std::ios::out | std::ios::binary);
 			colorFile.write((const char*)colorVector.data(), colorVector.size() * sizeof(ElementType));
 		}
@@ -202,11 +207,11 @@ namespace dif
 				if (data.first.size() != data.second.size())
 					throw std::invalid_argument("color and data size must be equal");
 			}
-			
+
 			void showLine(const std::vector<color::Color>& lineBackgroungColors)
 			{
 				std::stringstream ssAdress;
-				ssAdress << std::setfill('0') << std::setw(sizeof(uint32_t) * 2)	<< std::hex << pos;
+				ssAdress << std::setfill('0') << std::setw(sizeof(uint32_t) * 2) << std::hex << pos;
 				color::SetColor(adressForegroundColor, adressBackgroudColor);
 				std::cout << ssAdress.str() << " ";
 				for (auto& elementBackGrougColor : lineBackgroungColors)
@@ -230,6 +235,10 @@ namespace dif
 				}
 			}
 
+			void setPos(size_t pos)
+			{
+				this->pos = pos;
+			}
 		private:
 			const DestinationVectors& data;
 			color::Color adressBackgroudColor = color::Color::black;
@@ -258,7 +267,7 @@ namespace dif
 		}
 
 		template <typename T>
-		void loadToVector(const std::string &fileName, std::vector<T> &dataVector)
+		void loadToVector(const std::string& fileName, std::vector<T>& dataVector)
 		{
 			std::ifstream dataFile(fileName, std::ios_base::binary);
 			if (!dataFile.eof() && !dataFile.fail())
@@ -276,13 +285,68 @@ namespace dif
 				std::cout << "cannot open " << fileName << std::endl;
 			}
 		}
+
+		int getDifPos(size_t posStart)
+		{
+			auto& [referenceData, referenceColors] = dataReference;
+			auto& [toDebugData, toDebugColors] = dataToDebug;
+			size_t difLenght = (std::min)(referenceData.size(), toDebugData.size());
+			for (size_t pos = posStart; pos < difLenght; pos++)
+			{
+				if (compareElements(pos))
+					return pos;
+			}
+			return -1;
+		}
+
+		size_t showDifFromPos(size_t lineWidht, size_t pos)
+		{
+			DataDiplay refDisplay(dataReference);
+			DataDiplay debugDisplay(dataToDebug);
+			auto& [referenceData, referenceColors] = dataReference;
+			auto& [toDebugData, toDebugColors] = dataToDebug;
+			size_t difLenght = (std::min)(referenceData.size(), toDebugData.size());
+			size_t linePrinted = 0;
+			refDisplay.setPos(pos);
+			debugDisplay.setPos(pos);
+			for (; pos < difLenght && linePrinted < maxDifLen;)
+			{
+				size_t curLineWidht = (std::min)(lineWidht, difLenght - pos);
+				std::vector<color::Color> difResult(curLineWidht, color::Color::black);
+				for (size_t localLinePos = 0; localLinePos < curLineWidht; localLinePos++)
+				{
+					size_t curPos = pos + localLinePos;
+					if (compareElements(curPos))
+						difResult.at(localLinePos) = color::Color::white;
+				}
+				refDisplay.showLine(difResult);
+				std::cout << "\t";
+				debugDisplay.showLine(difResult);
+				std::cout << std::endl;
+				pos += curLineWidht;
+				linePrinted++;
+			}
+			return pos;
+		}
+
+		bool compareElements(size_t pos)
+		{
+			auto& [referenceData, referenceColors] = dataReference;
+			auto& [toDebugData, toDebugColors] = dataToDebug;
+			return (referenceData.at(pos) != toDebugData.at(pos) ||
+				referenceColors.at(pos) != toDebugColors.at(pos))
+				&& toDebugColors.at(pos) != difIgnore;
+		}
+
 		color::Color defaultColor = color::dark_blue;
 		DestinationVectors dataReference;
 		DestinationVectors dataToDebug;
-
-
+		int maxDifLen = 128;
+		int posUpDif = 128;
+		size_t DifCoutToShow = 10;
+		color::Color difIgnore{color::Color::dark_red};
 	};
-	
+
 	class StreamDifGetter final
 	{
 	private:
@@ -299,6 +363,8 @@ namespace dif
 			return instance();
 		}
 	};
+
+
 }
 
 #endif 
