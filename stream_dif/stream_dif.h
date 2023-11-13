@@ -152,7 +152,7 @@ namespace dif
 				std::cout << " no dif" << std::endl;
 				return;
 			}
-			int upPos = (pos < posUpDif)  ? pos : posUpDif;
+			int upPos = (pos < posUpDif) ? pos : posUpDif;
 			for (size_t difIndex = 0; difIndex < DifCoutToShow; difIndex++)
 			{
 				pos = showDifFromPos(lenWidht, pos - upPos);
@@ -164,6 +164,62 @@ namespace dif
 					std::cout << " no dif more" << std::endl;
 					return;
 				}
+			}
+		}
+
+		void clear(MethodDestination destination)
+		{
+			auto& [dataVector, colorVector] = getDestinationVector(destination);
+			dataVector.clear();
+			colorVector.clear();
+		}
+
+		void inspectType(size_t lenWidht, color::Color type)
+		{
+			auto& [referenceData, referenceColors] = dataReference;
+			auto& [toDebugData, toDebugColors] = dataToDebug;
+			int diffLen = (std::min)(referenceData.size(), toDebugData.size());
+			int delta = 32;
+			size_t difIndex = 0;
+			for (int pos = 0; pos < diffLen && difIndex < DifCoutToShow; difIndex++)
+			{
+				while (!((referenceColors.at(pos) == type || toDebugColors.at(pos) == type)
+					&& (referenceColors[pos] != toDebugColors[pos] || referenceData[pos] != toDebugData[pos])))
+				{
+					int newPos = getDifPos(pos);
+					assert(referenceColors[newPos] != toDebugColors[newPos] || referenceData[newPos] != toDebugData[newPos]);
+					if (newPos == -1)
+					{
+						std::cout << " no dif more" << std::endl;
+						return;
+					}
+					if (newPos == pos)
+						pos++;
+					else
+						pos = newPos;
+				}
+				
+				int upPos = (pos < posUpDif) ? pos : posUpDif;
+				if (referenceColors.at(pos) == type || toDebugColors.at(pos) == type)
+				{
+					auto [posUp, posDown] = findTypesNear(pos, type, 5);
+					int lastPos = -1;
+					for (int iPosUp = posUp.size() - 1;iPosUp >= 0;iPosUp--)
+					{
+						lastPos = showDifFromPos(lenWidht ,posUp[iPosUp] - upPos);
+					}
+					std::cout << std::endl;
+					pos = showDifFromPos(lenWidht, pos-upPos);
+					std::cout << std::endl;
+					for (auto& typePos : posDown)
+					{
+						lastPos = showDifFromPos(lenWidht, typePos-upPos);
+					}
+					std::cout << std::endl <<"next" << std::endl;
+				}
+				
+
+				
 			}
 		}
 
@@ -227,7 +283,8 @@ namespace dif
 							std::cout << byte.str();
 						}
 						color::SetColor(adressForegroundColor, adressBackgroudColor);
-						std::cout << " ";
+						if (sizeof(ElementType) != sizeof(uint8_t))
+							std::cout << " ";
 					}
 					else
 						break;
@@ -294,7 +351,11 @@ namespace dif
 			for (size_t pos = posStart; pos < difLenght; pos++)
 			{
 				if (compareElements(pos))
+				{
+					assert(referenceColors[pos] != toDebugColors[pos] || referenceData[pos] != toDebugData[pos]);
 					return pos;
+				}
+					
 			}
 			return -1;
 		}
@@ -338,13 +399,46 @@ namespace dif
 				&& toDebugColors.at(pos) != difIgnore;
 		}
 
+		std::pair<std::vector<int>, std::vector<int>> findTypesNear(size_t pos, color::Color type, int nearDistance)
+		{
+			auto& [referenceData, referenceColors] = dataReference;
+			auto& [toDebugData, toDebugColors] = dataToDebug;
+			int delta = 6;
+			std::vector<int> up;
+			std::vector<int> down;
+			int nearFound = 0;
+			for (int i = pos - delta; i > 0 && nearFound < nearDistance; i--)
+			{
+				if (referenceColors[i] == type)
+				{
+					up.push_back(i);
+					nearFound += 1;
+					i -= 6;
+				}
+				
+			}
+			nearFound = 0;
+			int diffLen = (std::min)(referenceData.size(), toDebugData.size());
+			for (int i = pos + delta; i < diffLen && nearFound < nearDistance; i ++)
+			{
+				if (referenceColors[i] == type)
+				{
+					down.push_back(i);
+					//assert(_byteswap_ulong(referenceColors.at(i)) == 0xff2004);
+					nearFound += 1;
+					i += 6;
+				}
+			}
+			return { up, down };
+		}
+
 		color::Color defaultColor = color::dark_blue;
 		DestinationVectors dataReference;
 		DestinationVectors dataToDebug;
-		int maxDifLen = 128;
-		int posUpDif = 128;
+		int maxDifLen = 16;
+		int posUpDif = 64;
 		size_t DifCoutToShow = 10;
-		color::Color difIgnore{color::Color::dark_red};
+		color::Color difIgnore{ color::Color::dark_red };
 	};
 
 	class StreamDifGetter final
