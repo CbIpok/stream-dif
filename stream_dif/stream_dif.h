@@ -43,26 +43,26 @@ namespace color
 		white
 	};
 
-	Color GetBackgroundColor()
+	static Color GetBackgroundColor()
 	{
 		CONSOLE_SCREEN_BUFFER_INFO csbi;
 		GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
 		return (Color)((csbi.wAttributes & 0xF0) >> 4);
 	}
 
-	Color GetForegroundColor()
+	static Color GetForegroundColor()
 	{
 		CONSOLE_SCREEN_BUFFER_INFO csbi;
 		GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
 		return (Color)(csbi.wAttributes & 0x0F);
 	}
 
-	void SetColor(Color fg, Color bg)
+	static void SetColor(Color fg, Color bg)
 	{
 		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), (int)(bg << 4) | (int)fg);
 	}
 
-	void SetForegroundColor(Color fg)
+	static void SetForegroundColor(Color fg)
 	{
 		SetColor(fg, GetBackgroundColor());
 	}
@@ -72,7 +72,7 @@ namespace color
 
 namespace conf
 {
-	namespace Jxs
+	namespace JxsParser
 	{
 		const color::Color PictureHeader = color::Color::dark_blue,
 			DataHeader = color::Color::dark_magenta,
@@ -109,11 +109,12 @@ namespace dif
 		{
 			check_types<PointerType>();
 			size_t elementTypeNumberTypeSizeRatio = sizeof(std::remove_pointer<PointerType>::type) / sizeof(ElementType);
-			ElementType* dataToWrite = static_cast<ElementType*>(data);
+			ElementType* dataToWrite = reinterpret_cast<ElementType*>(data);
 			auto& [destinationVector, destinationVectorColor] = getDestinationVector(destination);
 			size_t toReturn = destinationVector.size() - 1;
 			destinationVector.insert(destinationVector.end(), dataToWrite, dataToWrite + elementTypeNumberTypeSizeRatio * size);
 			destinationVectorColor.insert(destinationVectorColor.end(), elementTypeNumberTypeSizeRatio * size, dataColor);
+			assert(destinationVector.size() == destinationVectorColor.size());
 			return toReturn;
 		}
 
@@ -198,28 +199,28 @@ namespace dif
 					else
 						pos = newPos;
 				}
-				
+
 				int upPos = (pos < posUpDif) ? pos : posUpDif;
 				if (referenceColors.at(pos) == type || toDebugColors.at(pos) == type)
 				{
 					auto [posUp, posDown] = findTypesNear(pos, type, 5);
 					int lastPos = -1;
-					for (int iPosUp = posUp.size() - 1;iPosUp >= 0;iPosUp--)
+					for (int iPosUp = posUp.size() - 1; iPosUp >= 0; iPosUp--)
 					{
-						lastPos = showDifFromPos(lenWidht ,posUp[iPosUp] - upPos);
+						lastPos = showDifFromPos(lenWidht, posUp[iPosUp] - upPos);
 					}
 					std::cout << std::endl;
-					pos = showDifFromPos(lenWidht, pos-upPos);
+					pos = showDifFromPos(lenWidht, pos - upPos);
 					std::cout << std::endl;
 					for (auto& typePos : posDown)
 					{
-						lastPos = showDifFromPos(lenWidht, typePos-upPos);
+						lastPos = showDifFromPos(lenWidht, typePos - upPos);
 					}
-					std::cout << std::endl <<"next" << std::endl;
+					std::cout << std::endl << "next" << std::endl;
 				}
-				
 
-				
+
+
 			}
 		}
 
@@ -355,7 +356,7 @@ namespace dif
 					assert(referenceColors[pos] != toDebugColors[pos] || referenceData[pos] != toDebugData[pos]);
 					return pos;
 				}
-					
+
 			}
 			return -1;
 		}
@@ -415,11 +416,11 @@ namespace dif
 					nearFound += 1;
 					i -= 6;
 				}
-				
+
 			}
 			nearFound = 0;
 			int diffLen = (std::min)(referenceData.size(), toDebugData.size());
-			for (int i = pos + delta; i < diffLen && nearFound < nearDistance; i ++)
+			for (int i = pos + delta; i < diffLen && nearFound < nearDistance; i++)
 			{
 				if (referenceColors[i] == type)
 				{
@@ -441,23 +442,18 @@ namespace dif
 		color::Color difIgnore{ color::Color::dark_red };
 	};
 
-	class StreamDifGetter final
+	
+
+	template <typename T>
+	class Singleton
 	{
-	private:
-		static StreamDif& instance()
-		{
-			static StreamDif instance;
-			return instance;
-		}
 	public:
-		static StreamDif& get()
+		static T* GetInstance()
 		{
-			static std::once_flag flag;
-			std::call_once(flag, [] { instance(); });
-			return instance();
+			static T Instance;
+			return &Instance;
 		}
 	};
-
 
 }
 
