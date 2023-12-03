@@ -96,12 +96,19 @@ namespace dif
 
 		using ElementType = uint8_t;
 
-		template <typename NumberType>
-		size_t addNumber(MethodDestination destination, NumberType number, color::Color numberColor)
+		
+		size_t addNumber(MethodDestination destination, ElementType number, color::Color numberColor)
 		{
-			size_t elementTypeNumberTypeSizeRatio = sizeof(NumberType) / sizeof(ElementType);
-			ElementType* dataToWrite = static_cast<ElementType*>(&number);
-			return addMemory(destination, dataToWrite, elementTypeNumberTypeSizeRatio, numberColor);
+			ElementType* dataToWrite = &number;
+			return addMemory(destination, dataToWrite, 1, numberColor);
+		}
+
+		void changeElement(MethodDestination destination, ElementType number, int pos, color::Color numberColor)
+		{
+			auto& [destinationVector, destinationVectorColor] = getDestinationVector(destination);
+			destinationVector[pos] = number;
+			destinationVectorColor[pos] = numberColor;
+			int d = 0;
 		}
 
 		template <typename PointerType>
@@ -118,12 +125,9 @@ namespace dif
 			return toReturn;
 		}
 
-		template <typename NumberType>
 		size_t changeElementColor(MethodDestination destination, size_t index, color::Color elementColor)
 		{
-			check_types<NumberType>();
-			size_t elementTypeNumberTypeSizeRatio = sizeof(NumberType) / sizeof(ElementType);
-			changeMemoryColor(destination, index, elementTypeNumberTypeSizeRatio, elementColor);
+			changeMemoryColor(destination, index, 1, elementColor);
 			return index;
 		}
 
@@ -224,7 +228,20 @@ namespace dif
 			}
 		}
 
-		void show(MethodDestination destination, bool dif = false);
+		void show(MethodDestination destination, bool dif = false)
+		{
+			DataDiplay refDisplay(dataReference);
+			for (size_t line = 0; line < 5000;line++)
+			{
+				if (line * 16 < dataReference.first.size())
+				{
+					std::vector<color::Color> difResult(16, color::Color::black);
+					refDisplay.showLine(difResult);
+					std::cout << std::endl;
+				}
+				
+			}
+		}
 
 		void loadBin(MethodDestination destination, const std::string& fileName)
 		{
